@@ -24,7 +24,8 @@
     "react": "^17.0.0 || ^18.0.0",
     "react-color": "^2.19.3",
     "react-dom": "^17.0.0 || ^18.0.0",
-    "react-use-websocket": "^4.8.1"
+    "react-use-websocket": "^4.8.1",
+    "socket.io-client": "^4.7.5"
   },
   "devDependencies": {
     "@types/lodash.throttle": "^4.1.9",

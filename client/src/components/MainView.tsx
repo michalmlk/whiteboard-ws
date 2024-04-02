@@ -4,13 +4,16 @@ import throttle from 'lodash.throttle';
 import { Button, Container, Typography } from '@mui/material';
 import { ChromePicker, ColorChangeHandler } from 'react-color';
 import { useDrawer } from '../hooks/useDrawer.ts';
-import { Draw } from '../model.ts';
+import { Draw, DrawLineEvent } from '../model.ts';
+import { drawLine } from '../../helpers/drawLine.ts';
 type MainViewProps = {
     currentUser: string;
 };
+import { io } from 'socket.io-client';
+
 export default function MainView({ currentUser }: MainViewProps): ReactElement {
     const [point, setPoint] = useState<number[]>();
-    const [currentColor, setCurrentColor] = useState('#000000');
+    const [color, setColor] = useState('#000000');
 
     const onPointerMove = useCallback(
         throttle((e: PointerEvent) => {
@@ -19,28 +22,28 @@ export default function MainView({ currentUser }: MainViewProps): ReactElement {
         [setPoint]
     );
 
-    const { canvasRef, onMouseDown, handleClearCanvas } = useDrawer({ onDraw: drawAction, currentUser });
+    const { canvasRef, onMouseDown, handleClearCanvas } = useDrawer({ onDraw: createLine, currentUser });
 
-    function drawAction({ currPoint, prevPoint, ctx }: Draw) {
-        const { x: currX, y: currY } = currPoint;
-        const lineWidth = 5;
-
-        let startPoint = prevPoint ?? currPoint;
-        ctx.beginPath();
-        ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = currentColor;
-        ctx.moveTo(startPoint.x, startPoint.y);
-        ctx.lineTo(currX, currY);
-        ctx.stroke();
-
-        ctx.fillStyle = currentColor;
-        ctx.beginPath();
-        ctx.arc(startPoint.x, startPoint.y, 2, 0, 2 * Math.PI);
-        ctx.fill();
+    const socket = io('http://localhost:3000');
+    function createLine({ currPoint, prevPoint, ctx }: Draw) {
+        socket.emit('draw-line', { currPoint, prevPoint, ctx });
+        drawLine({ currPoint, prevPoint, ctx, color });
     }
 
+    useEffect(() => {
+        const ctx = canvasRef.current?.getContext('2d');
+
+        socket.on('draw-line', ({ prevPoint, currPoint, color }: DrawLineEvent) => {
+            if (!ctx) return;
+            drawLine({ prevPoint, currPoint, ctx, color });
+        });
+
+        return () => {
+            socket.off('draw-line');
+        };
+    }, [canvasRef]);
     const handleChangeColor = (e) => {
-        setCurrentColor(e.hex);
+        setColor(e.hex);
     };
 
     return (
@@ -57,7 +60,7 @@ export default function MainView({ currentUser }: MainViewProps): ReactElement {
                 <Typography component="h3" variant="h3">
                     Welcome back {currentUser} 😀
                 </Typography>
-                <ChromePicker onChangeComplete={handleChangeColor} color={currentColor} disableAlpha />
+                <ChromePicker onChangeComplete={handleChangeColor} color={color} disableAlpha />
                 <Button onClick={handleClearCanvas} variant="outlined" severity="primary">
                     Clear canvas
                 </Button>
