@@ -1,19 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import throttle from 'lodash.throttle';
 import useWebSocket from 'react-use-websocket';
-import { Simulate } from 'react-dom/test-utils';
-import mouseDown = Simulate.mouseDown;
+import { Point, Draw } from '../model.ts';
 
-type Point = {
-    x: number;
-    y: number;
-};
-
-type Draw = {
-    ctx: CanvasRenderingContext2D;
-    currPoint: Point;
-    prevPoint: Point | null;
-};
 type DrawProps = {
     onDraw: (props: Draw) => void;
     currentUser: string;
@@ -36,6 +25,11 @@ export const useDrawer = ({ onDraw, currentUser }: DrawProps) => {
         },
     });
     const sendMessageThrottled = useRef(throttle(sendJsonMessage, 50));
+
+    const handleClearCanvas = () => {
+        const canvasContext = canvasRef.current?.getContext('2d');
+        canvasContext?.clearRect(0, 0, canvasRef.current?.width!, canvasRef.current?.height!);
+    };
 
     useEffect(() => {
         if (!isMouseDown) return;
@@ -81,5 +75,6 @@ export const useDrawer = ({ onDraw, currentUser }: DrawProps) => {
     return {
         canvasRef,
         onMouseDown,
+        handleClearCanvas,
     };
 };

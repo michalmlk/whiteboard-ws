@@ -1,16 +1,16 @@
-import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import useWebSocket from 'react-use-websocket';
 import throttle from 'lodash.throttle';
-import { Box, colors, Container, Slider, Typography } from '@mui/material';
-import { SketchPicker } from 'react-color';
+import { Button, Container, Typography } from '@mui/material';
+import { ChromePicker, ColorChangeHandler } from 'react-color';
 import { useDrawer } from '../hooks/useDrawer.ts';
+import { Draw } from '../model.ts';
 type MainViewProps = {
     currentUser: string;
 };
 export default function MainView({ currentUser }: MainViewProps): ReactElement {
     const [point, setPoint] = useState<number[]>();
-    const [currentColor, setCurrentColor] = useState('#000');
-    const [currentLineWidth, setCurrentLineWidth] = useState<number>(5);
+    const [currentColor, setCurrentColor] = useState('#000000');
 
     const onPointerMove = useCallback(
         throttle((e: PointerEvent) => {
@@ -19,32 +19,29 @@ export default function MainView({ currentUser }: MainViewProps): ReactElement {
         [setPoint]
     );
 
-    const { canvasRef, onMouseDown } = useDrawer({ onDraw: drawAction, currentUser });
+    const { canvasRef, onMouseDown, handleClearCanvas } = useDrawer({ onDraw: drawAction, currentUser });
 
-    function drawAction({ currPoint, prevPoint, ctx }) {
+    function drawAction({ currPoint, prevPoint, ctx }: Draw) {
         const { x: currX, y: currY } = currPoint;
-        const color = currentColor;
-        const lineWidth = currentLineWidth;
+        const lineWidth = 5;
 
         let startPoint = prevPoint ?? currPoint;
         ctx.beginPath();
         ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = color;
+        ctx.strokeStyle = currentColor;
         ctx.moveTo(startPoint.x, startPoint.y);
         ctx.lineTo(currX, currY);
         ctx.stroke();
 
-        ctx.fillStyle = color;
+        ctx.fillStyle = currentColor;
         ctx.beginPath();
-        ctx.arc(startPoint.x, startPoint.y, currentLineWidth, 0, currentLineWidth * Math.PI);
+        ctx.arc(startPoint.x, startPoint.y, 2, 0, 2 * Math.PI);
         ctx.fill();
     }
 
     const handleChangeColor = (e) => {
         setCurrentColor(e.hex);
     };
-
-    const handleLineWidthChange = (e): void => setCurrentLineWidth(e.target.value);
 
     return (
         <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100%' }}>
@@ -60,8 +57,10 @@ export default function MainView({ currentUser }: MainViewProps): ReactElement {
                 <Typography component="h3" variant="h3">
                     Welcome back {currentUser} 😀
                 </Typography>
-                <SketchPicker onChangeComplete={handleChangeColor} color={currentColor} />
-                <Slider onChange={handleLineWidthChange} defaultValue={currentLineWidth} />
+                <ChromePicker onChangeComplete={handleChangeColor} color={currentColor} disableAlpha />
+                <Button onClick={handleClearCanvas} variant="outlined" severity="primary">
+                    Clear canvas
+                </Button>
             </Container>
             <canvas
                 width={768}
