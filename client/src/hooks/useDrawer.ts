@@ -44,7 +44,7 @@ export const useDrawer = ({ onDraw, currentUser }: DrawProps) => {
             };
         };
 
-        const mouseMoveHandler = (e): void => {
+        const mouseMoveHandler = (e: any): void => {
             const currentPoint = computePoint(e);
             const canvasContext = canvasRef.current?.getContext('2d');
 

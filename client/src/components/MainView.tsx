@@ -1,27 +1,17 @@
-import { ChangeEvent, ReactElement, useCallback, useEffect, useRef, useState } from 'react';
-import useWebSocket from 'react-use-websocket';
-import throttle from 'lodash.throttle';
+import { ReactElement, useEffect, useState } from 'react';
 import { Button, Container, Typography } from '@mui/material';
-import { ChromePicker, ColorChangeHandler } from 'react-color';
+import { ChromePicker } from 'react-color';
 import { useDrawer } from '../hooks/useDrawer.ts';
 import { Draw, DrawLineEvent } from '../model.ts';
 import { drawLine } from '../../helpers/drawLine.ts';
+import { io } from 'socket.io-client';
+
 type MainViewProps = {
     currentUser: string;
 };
-import { io } from 'socket.io-client';
 
 export default function MainView({ currentUser }: MainViewProps): ReactElement {
-    const [point, setPoint] = useState<number[]>();
     const [color, setColor] = useState('#000000');
-
-    const onPointerMove = useCallback(
-        throttle((e: PointerEvent) => {
-            setPoint([e.clientX, e.clientY]);
-        }, 100),
-        [setPoint]
-    );
-
     const { canvasRef, onMouseDown, handleClearCanvas } = useDrawer({ onDraw: createLine, currentUser });
 
     const socket = io('http://localhost:3000');
@@ -33,16 +23,40 @@ export default function MainView({ currentUser }: MainViewProps): ReactElement {
     useEffect(() => {
         const ctx = canvasRef.current?.getContext('2d');
 
+        socket.emit('client-prepared');
+
+        socket.on('get-current-canvas', () => {
+            if (!canvasRef.current?.toDataURL()) return;
+            socket.emit('canvas-state', canvasRef.current?.toDataURL());
+        });
+
+        socket.on('canvas-state-from-server', (state: string) => {
+            const image = new Image();
+            image.src = state;
+            image.onload = () => {
+                ctx?.drawImage(image, 0, 0);
+            };
+        });
+
         socket.on('draw-line', ({ prevPoint, currPoint, color }: DrawLineEvent) => {
             if (!ctx) return;
             drawLine({ prevPoint, currPoint, ctx, color });
         });
 
+        socket.on('clear', () => {
+            console.log('canvas cleared');
+            handleClearCanvas();
+        });
+
         return () => {
             socket.off('draw-line');
+            socket.off('canvas-state-from-server');
+            socket.off('get-current-canvas');
+            socket.off('clear');
+            socket.off('client-prepared');
         };
     }, [canvasRef]);
-    const handleChangeColor = (e) => {
+    const handleChangeColor = (e: any) => {
         setColor(e.hex);
     };
 
@@ -61,7 +75,7 @@ export default function MainView({ currentUser }: MainViewProps): ReactElement {
                     Welcome back {currentUser} 😀
                 </Typography>
                 <ChromePicker onChangeComplete={handleChangeColor} color={color} disableAlpha />
-                <Button onClick={handleClearCanvas} variant="outlined" severity="primary">
+                <Button onClick={() => socket.emit('clear')} variant="outlined" color="primary">
                     Clear canvas
                 </Button>
             </Container>
